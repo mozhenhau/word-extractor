@@ -13,11 +13,11 @@
 @property (weak, nonatomic) IBOutlet UITableView *tableView;
 @property (weak, nonatomic) IBOutlet UILabel *totalCountLabel;
 
-@property(nonatomic,strong)NSArray* keywordArr;  //词库
-@property(nonatomic,strong)NSMutableArray* phraseArr;  //短语库
-@property(nonatomic,strong)NSArray* symbolArr;    //需处理的特殊符号
-@property(nonatomic,strong)NSArray* tenseArr;    //需处理的时态
-@property(nonatomic,strong)NSArray* irregularArr;    //需处理的不规则单词
+@property(nonatomic,strong)NSSet* keywordSet;  //词库
+@property(nonatomic,strong)NSMutableSet* phraseSet;  //短语库
+@property(nonatomic,strong)NSSet* symbolSet;    //需处理的特殊符号
+@property(nonatomic,strong)NSSet* tenseSet;    //需处理的时态
+@property(nonatomic,strong)NSSet* irregularSet;    //需处理的不规则单词
 
 @property(nonatomic,strong)NSMutableArray* extractArr;   //最终提取的单词
 @property(nonatomic,assign)NSTimeInterval useTime;  //提词所用时间
@@ -36,17 +36,17 @@
 }
 
 -(void)initCondition{
-    _keywordArr = [self loadKeywords];
+    _keywordSet = [self loadKeywords];
     //短语库
-    _phraseArr = [NSMutableArray arrayWithCapacity:1];
-    for (NSString *key in _keywordArr) {
+    _phraseSet = [[NSMutableSet alloc] initWithCapacity:1];
+    for (NSString *key in _keywordSet) {
         if ([key containsString:@"..."]) {
-            [_phraseArr addObject:key];
+            [_phraseSet addObject:key];
         }
     }
-    _symbolArr = @[@"-"];
-    _tenseArr = @[@"ed",@"ing",@"s",@"es",@"ies"];
-    _irregularArr = @[@"drunk"];
+    _symbolSet = [NSSet setWithObjects:@"-", nil];
+    _tenseSet = [NSSet setWithObjects:@"ed",@"ing",@"s",@"es",@"ies", nil];
+    _irregularSet = [NSSet setWithObjects:@"drunk", nil];
     _extractArr = [NSMutableArray arrayWithCapacity:1];
 }
 
@@ -88,7 +88,7 @@
         //是句子,先提取短语. 例如as ... as
         if ([word containsString:@" "]) {
             //FIXME: 影响性能
-            for (NSString *key in _phraseArr) {
+            for (NSString *key in _phraseSet) {
                 NSString *regex = [key stringByReplacingCharactersInRange:[key rangeOfString:@"\\s*\\...\\s*" options:NSRegularExpressionSearch] withString:@".*\\w+.*"];
                 NSPredicate *pred = [NSPredicate predicateWithFormat:@"SELF MATCHES %@", [NSString stringWithFormat:@".*%@.*",regex]];
                 
@@ -104,7 +104,7 @@
     
         
         //检验是否有特殊字符,存在则需要递归处理
-        for (NSString *symbol in _symbolArr) {
+        for (NSString *symbol in _symbolSet) {
             if ([word rangeOfString:symbol].length > 0) {
                 [self addExtractWithString:word separatedBy:symbol];
                 continue;
@@ -112,10 +112,10 @@
         }
         
         //检验时态变形
-        for (NSString* tense in _tenseArr) {
+        for (NSString* tense in _tenseSet) {
             if ([word hasSuffix:tense]) {
                 NSString *originalWord = [word stringByReplacingOccurrencesOfString:tense withString:@""];
-                if ([_keywordArr containsObject:originalWord]) {
+                if ([_keywordSet containsObject:originalWord]) {
                     [_extractArr addObject:originalWord];
                     continueExtract = NO;
                     continue;
@@ -128,7 +128,7 @@
         }
         
         //词库有且不重复则加入,提词成功
-        if ([_keywordArr containsObject:word]) {
+        if ([_keywordSet containsObject:word]) {
             [_extractArr addObject:word];
         }
     }
@@ -142,13 +142,13 @@
  *
  *  @return 返回词库单词列表
  */
--(NSArray*)loadKeywords{
+-(NSSet*)loadKeywords{
     NSString* fileRoot = [[NSBundle mainBundle] pathForResource:@"word-list" ofType:@"txt"];
     NSString* fileContents = [NSString stringWithContentsOfFile:fileRoot encoding:NSUTF8StringEncoding error:nil];
     
     // first, separate by new line
     NSArray *keywords = [fileContents componentsSeparatedByCharactersInSet:[NSCharacterSet newlineCharacterSet]];
-    return keywords;
+    return [NSSet setWithArray:keywords];
 }
 
 
